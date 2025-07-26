@@ -78,7 +78,7 @@ cl_kernel         getb_kn[4], bexchg_kn[4], adv_kn[4];
 cl_event          getb_ev[4], mim_ev[4], bexchg_ev[4], adv_ev[4];
 cl_mem            brr[4], b0[6], b1[6];
 
-
+// events container
 getb_ev[0]  =  0;
 getb_ev[1]  =  0;
 getb_ev[2]  =  0;
@@ -109,6 +109,7 @@ if ((ec  =  nc_def_dim(nid, "z", nz            , &z_did))) err(ec);
 if ((ec  =  nc_def_dim(nid, "y", ny            , &y_did))) err(ec);
 if ((ec  =  nc_def_dim(nid, "x", nx            , &x_did))) err(ec);
 
+// netcdf dimensional identifications
 dids[0]  =  t_did;
 dids[1]  =  z_did;
 dids[2]  =  y_did;
@@ -117,8 +118,10 @@ dids[3]  =  x_did;
 // create variables
 if ((ec  =  nc_def_var(nid, "data", NC_FLOAT, ond, dids, &ovid))) err(ec);
 
+// compression
 if ((ec  =  nc_def_var_deflate(nid, ovid, 1, 1, 5))) err(ec);
 
+// end definition of variables
 if ((ec  =  nc_enddef(nid))) err(ec);
 
 
@@ -160,7 +163,7 @@ arr_init_3d(an0,nz,ny,nx,iz,iy,ix,oz,oy,ox);
 dcmp_2pc_3d(an0,pn0p0,pn0p1,nz,ny,nx);
 dcmp_2pc_3d(an0,pn1p0,pn1p1,nz,ny,nx);
 
-
+// write the initial data
 start[0] =  0;
 if ((ec = nc_put_vara_float(nid, ovid, start, count, &an0[0]))) err(ec);
 
@@ -382,20 +385,23 @@ while(ctr < nt)
       cle   =  clEnqueueNDRangeKernel(cq[0], bexchg_kn[1], 3, NULL, glwksiz, NULL, 1, &getb_ev[1], &bexchg_ev[1]);
       cle   =  clEnqueueNDRangeKernel(cq[1], bexchg_kn[3], 3, NULL, glwksiz, NULL, 1, &getb_ev[3], &bexchg_ev[3]);
 
-
+      // advection
       cle   =  clEnqueueNDRangeKernel(cq[0], adv_kn[0], 3, advofset, advgwsiz, NULL, 1, &bexchg_ev[0], &adv_ev[0]);
       cle   =  clEnqueueNDRangeKernel(cq[0], adv_kn[1], 3, advofset, advgwsiz, NULL, 1, &bexchg_ev[1], &adv_ev[1]);
       cle   =  clEnqueueNDRangeKernel(cq[1], adv_kn[2], 3, advofset, advgwsiz, NULL, 1, &bexchg_ev[2], &adv_ev[2]);
       cle   =  clEnqueueNDRangeKernel(cq[1], adv_kn[3], 3, advofset, advgwsiz, NULL, 1, &bexchg_ev[3], &adv_ev[3]);
    }
 
+   // read the data from buffer
    cle   =  clEnqueueReadBuffer(cq[0], brr[0], CL_TRUE, 0, psiz, pn1p0, 4, adv_ev, NULL);
    cle   =  clEnqueueReadBuffer(cq[1], brr[2], CL_TRUE, 0, psiz, pn1p1, 4, adv_ev, NULL);
 
+   // concatenate two separted arrays into a single array
    dpad0_cat_3d(an0,pn1p0,pn1p1,nz,ny,nx);
 
    ctr =  ctr + 1;
 
+   // write output for this time step
    start[0] =  ctr;
    if ((ec = nc_put_vara_float(nid, ovid, start, count, &an0[0]))) err(ec);
 
